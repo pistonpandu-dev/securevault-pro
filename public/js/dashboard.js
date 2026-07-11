@@ -1,5 +1,5 @@
 // =====================================================
-// DASHBOARD SCRIPT - FULL FIX
+// DASHBOARD SCRIPT - WITH FAST PROGRESS
 // =====================================================
 
 // =====================================================
@@ -11,6 +11,31 @@ let processingInterval = null;
 let timeInterval = null;
 let allVideos = [];
 let deletedVideosList = [];
+let selectedSpeed = 'medium'; // fast, medium, slow
+
+// =====================================================
+// SPEED CONFIGURATIONS
+// =====================================================
+const SPEED_CONFIG = {
+    fast: {
+        label: '⚡ Cepat (5 menit)',
+        duration: 5 * 60, // 5 menit
+        updateInterval: 100,
+        icon: 'fa-bolt'
+    },
+    medium: {
+        label: '🚀 Sedang (30 menit)',
+        duration: 30 * 60, // 30 menit
+        updateInterval: 500,
+        icon: 'fa-rocket'
+    },
+    slow: {
+        label: '🐢 Lambat (34 jam)',
+        duration: 34 * 3600, // 34 jam
+        updateInterval: 2000,
+        icon: 'fa-turtle'
+    }
+};
 
 // =====================================================
 // DOM ELEMENTS
@@ -220,11 +245,94 @@ function filterVideos() {
 }
 
 // =====================================================
-// SIMULATE DELETION - 34 HOURS
+// CREATE SPEED SELECTOR
+// =====================================================
+function createSpeedSelector() {
+    const container = document.querySelector('.section-header-right');
+    if (!container) return;
+    
+    const speedGroup = document.createElement('div');
+    speedGroup.className = 'speed-selector';
+    speedGroup.style.cssText = `
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-right: 8px;
+    `;
+    
+    // Label
+    const label = document.createElement('span');
+    label.textContent = 'Kecepatan:';
+    label.style.cssText = `
+        font-size: 12px;
+        color: rgba(255,255,255,0.5);
+        font-weight: 500;
+    `;
+    speedGroup.appendChild(label);
+    
+    // Buttons
+    const speeds = [
+        { key: 'fast', label: '⚡', title: 'Cepat (5 menit)' },
+        { key: 'medium', label: '🚀', title: 'Sedang (30 menit)' },
+        { key: 'slow', label: '🐢', title: 'Lambat (34 jam)' }
+    ];
+    
+    speeds.forEach(speed => {
+        const btn = document.createElement('button');
+        btn.textContent = speed.label;
+        btn.title = speed.title;
+        btn.dataset.speed = speed.key;
+        btn.style.cssText = `
+            padding: 6px 10px;
+            border: 2px solid ${selectedSpeed === speed.key ? 'var(--primary)' : 'rgba(255,255,255,0.1)'};
+            border-radius: 8px;
+            background: ${selectedSpeed === speed.key ? 'rgba(108,99,255,0.2)' : 'transparent'};
+            color: ${selectedSpeed === speed.key ? 'var(--primary)' : 'rgba(255,255,255,0.5)'};
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        `;
+        
+        btn.addEventListener('mouseenter', () => {
+            btn.style.background = 'rgba(255,255,255,0.05)';
+        });
+        
+        btn.addEventListener('mouseleave', () => {
+            if (selectedSpeed !== speed.key) {
+                btn.style.background = 'transparent';
+            }
+        });
+        
+        btn.addEventListener('click', () => {
+            selectedSpeed = speed.key;
+            // Update semua button
+            document.querySelectorAll('.speed-selector button').forEach(b => {
+                const isActive = b.dataset.speed === selectedSpeed;
+                b.style.borderColor = isActive ? 'var(--primary)' : 'rgba(255,255,255,0.1)';
+                b.style.background = isActive ? 'rgba(108,99,255,0.2)' : 'transparent';
+                b.style.color = isActive ? 'var(--primary)' : 'rgba(255,255,255,0.5)';
+            });
+            showToast(`Kecepatan: ${SPEED_CONFIG[selectedSpeed].label}`, 'info');
+        });
+        
+        speedGroup.appendChild(btn);
+    });
+    
+    // Insert before delete button
+    const deleteBtn = container.querySelector('.delete-all-btn');
+    if (deleteBtn) {
+        container.insertBefore(speedGroup, deleteBtn);
+    } else {
+        container.prepend(speedGroup);
+    }
+}
+
+// =====================================================
+// SIMULATE DELETION - WITH SPEED OPTIONS
 // =====================================================
 function simulateDeletion(videos) {
     return new Promise((resolve) => {
-        // Check if videos exist
         if (!videos || videos.length === 0) {
             console.warn('⚠️ No videos to delete');
             resolve();
@@ -246,6 +354,11 @@ function simulateDeletion(videos) {
         overlay.style.display = 'flex';
         isProcessing = true;
         
+        // Get selected speed config
+        const speedConfig = SPEED_CONFIG[selectedSpeed] || SPEED_CONFIG.medium;
+        const totalEstimatedSeconds = speedConfig.duration;
+        const updateInterval = speedConfig.updateInterval;
+        
         let progress = 0;
         let elapsedSeconds = 0;
         let processedCount = 0;
@@ -256,8 +369,13 @@ function simulateDeletion(videos) {
         
         const totalSize = videos.reduce((sum, v) => sum + v.sizeGB, 0);
         const totalVideosCount = videos.length;
-        const totalEstimatedSeconds = 34 * 3600;
         const startTime = Date.now();
+        
+        // Show speed info
+        processingStatus.textContent = `⚡ Kecepatan: ${speedConfig.label}`;
+        setTimeout(() => {
+            processingStatus.textContent = '🔍 Memulai proses penghapusan...';
+        }, 1500);
         
         // Show cancel button
         cancelBtn.style.display = 'block';
@@ -375,7 +493,11 @@ function simulateDeletion(videos) {
             ];
             
             const currentStatus = statuses.find(s => progress <= s.max) || statuses[statuses.length - 1];
-            if (processingStatus) processingStatus.textContent = currentStatus.text;
+            if (processingStatus) {
+                // Tampilkan speed info di status
+                const speedInfo = ` (${speedConfig.label})`;
+                processingStatus.textContent = currentStatus.text + (progress < 100 ? speedInfo : '');
+            }
             
             updateVideoList();
             
@@ -393,7 +515,7 @@ function simulateDeletion(videos) {
         }
         
         // Start intervals
-        processingInterval = setInterval(updateProgress, 2000);
+        processingInterval = setInterval(updateProgress, updateInterval);
         timeInterval = setInterval(() => {
             if (!isProcessing) return;
             const now = Date.now();
@@ -414,6 +536,7 @@ function simulateDeletion(videos) {
 async function deleteAllVideos() {
     try {
         console.log('🗑️ Delete all videos started');
+        console.log('⚡ Speed:', SPEED_CONFIG[selectedSpeed].label);
         
         if (isProcessing) {
             showToast('⚠️ Proses sedang berjalan!', 'warning');
@@ -429,6 +552,12 @@ async function deleteAllVideos() {
         const vcsCount = allVideos.filter(v => v.type === 'vcs').length;
         const waCount = allVideos.filter(v => v.type === 'whatsapp').length;
         
+        // Get speed info
+        const speedConfig = SPEED_CONFIG[selectedSpeed];
+        const durationText = speedConfig.duration >= 3600 
+            ? `${Math.floor(speedConfig.duration / 3600)} jam` 
+            : `${Math.floor(speedConfig.duration / 60)} menit`;
+        
         const confirmed = confirm(
             `⚠️ PERINGATAN! \n\n` +
             `Anda akan menghapus:\n` +
@@ -436,7 +565,8 @@ async function deleteAllVideos() {
             `• ${waCount} video WhatsApp\n` +
             `Total: ${allVideos.length} video\n` +
             `Total ukuran: ${totalSize >= 1 ? totalSize.toFixed(2) + ' GB' : (totalSize * 1024).toFixed(1) + ' MB'}\n\n` +
-            `Proses ini akan memakan waktu sekitar 34 jam.\n\n` +
+            `⚡ Kecepatan: ${speedConfig.label}\n` +
+            `⏱️ Estimasi waktu: ${durationText}\n\n` +
             `Yakin ingin melanjutkan?`
         );
         
@@ -455,7 +585,7 @@ async function deleteAllVideos() {
         renderMediaItems([]);
         updateStats([]);
         
-        showToast('✅ Semua video berhasil dihapus!', 'success');
+        showToast(`✅ Semua video berhasil dihapus! (${speedConfig.label})`, 'success');
         console.log('✅ All videos deleted successfully');
         
     } catch (error) {
@@ -584,5 +714,13 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// =====================================================
+// INIT - CREATE SPEED SELECTOR
+// =====================================================
+document.addEventListener('DOMContentLoaded', () => {
+    createSpeedSelector();
+});
+
 console.log('✅ Dashboard initialized');
 console.log(`📊 Total videos loaded: ${allVideos.length}`);
+console.log(`⚡ Default speed: ${SPEED_CONFIG[selectedSpeed].label}`);
