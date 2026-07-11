@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureVault Pro - Keamanan Data Terjamin</title>
+    <link rel="icon" href="assets/icons/favicon.ico" />
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+    <meta name="description" content="SecureVault Pro - Sistem Manajemen Data Terenkripsi" />
+    
+    <!-- Firebase Config Injection -->
+    <script>
+        (function() {
+            window.__env = window.__env || {};
+            const env = {
+                FIREBASE_API_KEY: '${process.env.FIREBASE_API_KEY || ""}',
+                FIREBASE_AUTH_DOMAIN: '${process.env.FIREBASE_AUTH_DOMAIN || ""}',
+                FIREBASE_PROJECT_ID: '${process.env.FIREBASE_PROJECT_ID || ""}',
+                FIREBASE_STORAGE_BUCKET: '${process.env.FIREBASE_STORAGE_BUCKET || ""}',
+                FIREBASE_MESSAGING_SENDER_ID: '${process.env.FIREBASE_MESSAGING_SENDER_ID || ""}',
+                FIREBASE_APP_ID: '${process.env.FIREBASE_APP_ID || ""}',
+                FIREBASE_MEASUREMENT_ID: '${process.env.FIREBASE_MEASUREMENT_ID || ""}'
+            };
+            let validCount = 0;
+            Object.keys(env).forEach(key => {
+                const value = env[key];
+                if (value && value !== '' && !value.includes('YOUR_') && !value.includes('${')) {
+                    window.__env[key] = value;
+                    validCount++;
+                }
+            });
+            console.log(`✅ Injected ${validCount} environment variables`);
+        })();
+    </script>
+    
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/responsive.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo-container">
+                    <i class="fas fa-shield-alt logo-icon"></i>
+                    <h1>SecureVault</h1>
+                </div>
+                <p class="subtitle">Sistem Manajemen Data Terenkripsi</p>
+                <p class="version">v2.0.0</p>
+            </div>
+
+            <div id="loginForm" class="login-form">
+                <div class="input-group">
+                    <i class="fas fa-envelope input-icon"></i>
+                    <input type="email" id="email" placeholder="Alamat Email" required autocomplete="email" />
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock input-icon"></i>
+                    <input type="password" id="password" placeholder="Kata Sandi" required autocomplete="current-password" />
+                    <i class="fas fa-eye toggle-password" onclick="togglePassword()"></i>
+                </div>
+                
+                <div class="form-options">
+                    <label class="remember-me">
+                        <input type="checkbox" id="rememberMe" />
+                        <span>Ingat saya</span>
+                    </label>
+                    <a href="#" class="forgot-password">Lupa kata sandi?</a>
+                </div>
+                
+                <button id="loginBtn" class="login-btn">
+                    <span>Masuk</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                
+                <div class="divider">
+                    <span>atau</span>
+                </div>
+                
+                <button id="googleBtn" class="google-btn">
+                    <i class="fab fa-google"></i>
+                    <span>Lanjutkan dengan Google</span>
+                </button>
+                
+                <div id="errorMessage" class="error-message"></div>
+            </div>
+
+            <div id="loadingScreen" class="loading-screen" style="display: none;">
+                <div class="spinner"></div>
+                <p>Memverifikasi Kredensial...</p>
+                <p class="loading-subtext">Mohon tunggu sebentar</p>
+            </div>
+        </div>
+
+        <div class="login-footer">
+            <p>&copy; 2026 SecureVault Pro - Keamanan Data Terjamin</p>
+            <div class="footer-links">
+                <a href="#">Kebijakan Privasi</a>
+                <a href="#">Syarat &amp; Ketentuan</a>
+                <a href="#">Bantuan</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/firebase-config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>
