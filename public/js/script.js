@@ -1,5 +1,5 @@
 // =====================================================
-// LOGIN SCRIPT - ULTRA MODERN
+// LOGIN SCRIPT
 // =====================================================
 
 // DOM Elements
@@ -19,41 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         emailInput.value = savedEmail;
         rememberMe.checked = true;
     }
-    
-    // Add floating particles to login
-    initLoginParticles();
 });
-
-function initLoginParticles() {
-    const container = document.querySelector('.login-container');
-    const particlesContainer = document.createElement('div');
-    particlesContainer.className = 'particles';
-    particlesContainer.style.position = 'fixed';
-    particlesContainer.style.top = '0';
-    particlesContainer.style.left = '0';
-    particlesContainer.style.width = '100%';
-    particlesContainer.style.height = '100%';
-    particlesContainer.style.zIndex = '-1';
-    particlesContainer.style.pointerEvents = 'none';
-    particlesContainer.style.overflow = 'hidden';
-    document.body.prepend(particlesContainer);
-
-    const colors = ['#6C63FF', '#FF6584', '#00D2A0', '#FFB800'];
-    
-    for (let i = 0; i < 20; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        const size = Math.random() * 3 + 1;
-        particle.style.width = size + 'px';
-        particle.style.height = size + 'px';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.animationDuration = (Math.random() * 25 + 15) + 's';
-        particle.style.animationDelay = (Math.random() * 15) + 's';
-        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-        particle.style.opacity = Math.random() * 0.3 + 0.1;
-        particlesContainer.appendChild(particle);
-    }
-}
 
 // Toggle password visibility
 function togglePassword() {
@@ -96,11 +62,17 @@ function setError(message) {
     }
 }
 
-// Login with email
+// =====================================================
+// LOGIN WITH EMAIL
+// =====================================================
+
 async function loginWithEmail() {
     const email = emailInput.value.trim();
     const password = passwordInput.value;
     
+    console.log('🔐 Attempting login with:', email);
+    
+    // Validation
     if (!email || !password) {
         setError('Harap isi email dan password');
         return;
@@ -116,11 +88,21 @@ async function loginWithEmail() {
         return;
     }
     
+    // Check if Firebase is initialized
+    if (typeof window.auth === 'undefined' || window.auth === null) {
+        setError('Firebase tidak terinisialisasi. Silakan refresh halaman.');
+        console.error('❌ Firebase auth is not initialized');
+        return;
+    }
+    
     try {
         setLoading(true);
         setError('');
         
-        await auth.signInWithEmailAndPassword(email, password);
+        console.log('📡 Sending login request to Firebase...');
+        const userCredential = await window.auth.signInWithEmailAndPassword(email, password);
+        
+        console.log('✅ Login successful:', userCredential.user.email);
         
         if (rememberMe.checked) {
             localStorage.setItem('savedEmail', email);
@@ -128,24 +110,48 @@ async function loginWithEmail() {
             localStorage.removeItem('savedEmail');
         }
         
+        // Redirect to dashboard
         window.location.href = 'dashboard.html';
         
     } catch (error) {
         setLoading(false);
-        console.error('Login error:', error);
+        console.error('❌ Login error:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
         
         let message = 'Email atau password salah';
-        if (error.code === 'auth/user-not-found') message = 'Email tidak terdaftar';
-        else if (error.code === 'auth/wrong-password') message = 'Password salah';
-        else if (error.code === 'auth/too-many-requests') message = 'Terlalu banyak percobaan. Coba lagi nanti';
-        else if (error.code === 'auth/network-request-failed') message = 'Gagal terhubung ke server';
+        if (error.code === 'auth/user-not-found') {
+            message = 'Email tidak terdaftar';
+        } else if (error.code === 'auth/wrong-password') {
+            message = 'Password salah';
+        } else if (error.code === 'auth/too-many-requests') {
+            message = 'Terlalu banyak percobaan. Coba lagi nanti';
+        } else if (error.code === 'auth/network-request-failed') {
+            message = 'Gagal terhubung ke server. Periksa koneksi internet';
+        } else if (error.code === 'auth/invalid-email') {
+            message = 'Format email tidak valid';
+        } else if (error.code === 'auth/user-disabled') {
+            message = 'Akun ini telah dinonaktifkan';
+        } else if (error.code === 'auth/operation-not-allowed') {
+            message = 'Login dengan email/password tidak diaktifkan. Hubungi admin.';
+        }
         
         setError(message);
     }
 }
 
-// Login with Google
+// =====================================================
+// LOGIN WITH GOOGLE
+// =====================================================
+
 async function loginWithGoogle() {
+    console.log('🔐 Attempting Google login...');
+    
+    if (typeof window.auth === 'undefined' || window.auth === null) {
+        setError('Firebase tidak terinisialisasi. Silakan refresh halaman.');
+        return;
+    }
+    
     try {
         setLoading(true);
         setError('');
@@ -153,22 +159,32 @@ async function loginWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
         
-        await auth.signInWithPopup(provider);
+        const userCredential = await window.auth.signInWithPopup(provider);
+        
+        console.log('✅ Google login successful:', userCredential.user.email);
         window.location.href = 'dashboard.html';
         
     } catch (error) {
         setLoading(false);
-        console.error('Google login error:', error);
+        console.error('❌ Google login error:', error);
         
         let message = 'Gagal login dengan Google';
-        if (error.code === 'auth/popup-closed-by-user') message = 'Login dibatalkan';
-        else if (error.code === 'auth/network-request-failed') message = 'Gagal terhubung ke server';
+        if (error.code === 'auth/popup-closed-by-user') {
+            message = 'Login dibatalkan';
+        } else if (error.code === 'auth/network-request-failed') {
+            message = 'Gagal terhubung ke server';
+        } else if (error.code === 'auth/operation-not-allowed') {
+            message = 'Login dengan Google tidak diaktifkan. Hubungi admin.';
+        }
         
         setError(message);
     }
 }
 
-// Event Listeners
+// =====================================================
+// EVENT LISTENERS
+// =====================================================
+
 loginBtn.addEventListener('click', loginWithEmail);
 googleBtn.addEventListener('click', loginWithGoogle);
 
@@ -178,13 +194,25 @@ document.addEventListener('keypress', (e) => {
     }
 });
 
-// Auth state
-auth.onAuthStateChanged(user => {
-    if (user && window.location.pathname.includes('dashboard.html')) {
-        // Already logged in
-    } else if (user && !window.location.pathname.includes('dashboard.html')) {
-        window.location.href = 'dashboard.html';
-    } else if (!user && window.location.pathname.includes('dashboard.html')) {
-        window.location.href = 'index.html';
-    }
-});
+// =====================================================
+// AUTH STATE
+// =====================================================
+
+if (typeof window.auth !== 'undefined' && window.auth) {
+    window.auth.onAuthStateChanged(user => {
+        if (user && window.location.pathname.includes('dashboard.html')) {
+            // Already logged in
+            console.log('👤 User already logged in:', user.email);
+        } else if (user && !window.location.pathname.includes('dashboard.html')) {
+            console.log('👤 User logged in, redirecting to dashboard...');
+            window.location.href = 'dashboard.html';
+        } else if (!user && window.location.pathname.includes('dashboard.html')) {
+            console.log('👤 User not logged in, redirecting to login...');
+            window.location.href = 'index.html';
+        }
+    });
+} else {
+    console.error('❌ Auth not available for state monitoring');
+}
+
+console.log('✅ Login script loaded');
