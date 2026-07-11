@@ -1,0 +1,22 @@
+{
+  "name": "securevault-pro",
+  "version": "2.0.0",
+  "description": "SecureVault Pro - Sistem Manajemen Data Terenkripsi",
+  "main": "public/index.html",
+  "scripts": {
+    "start": "serve public",
+    "dev": "serve public -l 3000",
+    "deploy": "vercel --prod",
+    "deploy:dev": "vercel"
+  },
+  "dependencies": {
+    "firebase": "^9.22.0"
+  },
+  "devDependencies": {
+    "serve": "^14.2.0",
+    "vercel": "^32.2.5"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
