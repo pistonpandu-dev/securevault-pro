@@ -1,5 +1,5 @@
 // =====================================================
-// DASHBOARD SCRIPT
+// DASHBOARD SCRIPT - ULTRA MODERN
 // =====================================================
 
 // State
@@ -8,6 +8,7 @@ let isProcessing = false;
 let processingInterval = null;
 let timeInterval = null;
 let allVideos = [];
+let particles = [];
 
 // DOM Elements
 const userEmailEl = document.getElementById('userEmail');
@@ -24,6 +25,33 @@ const searchInput = document.getElementById('searchInput');
 const filterSize = document.getElementById('filterSize');
 const sortBy = document.getElementById('sortBy');
 const videoCountLabel = document.getElementById('videoCountLabel');
+
+// =====================================================
+// PARTICLES BACKGROUND
+// =====================================================
+
+function initParticles() {
+    const container = document.createElement('div');
+    container.className = 'particles';
+    document.body.prepend(container);
+
+    const colors = ['#6C63FF', '#FF6584', '#00D2A0', '#FFB800', '#25D366'];
+    
+    for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        const size = Math.random() * 4 + 2;
+        particle.style.width = size + 'px';
+        particle.style.height = size + 'px';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDuration = (Math.random() * 20 + 10) + 's';
+        particle.style.animationDelay = (Math.random() * 10) + 's';
+        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+        particle.style.opacity = Math.random() * 0.5 + 0.1;
+        container.appendChild(particle);
+        particles.push(particle);
+    }
+}
 
 // =====================================================
 // GENERATE VIDEOS - VCS 1-10 & WHATSAPP 10-50
@@ -58,7 +86,6 @@ function generateVideos() {
     // WhatsApp Videos: 10-50 dengan ukuran bervariasi
     const waSizes = [];
     for (let i = 0; i < 41; i++) {
-        // Ukuran dari kecil (30MB) sampai besar (4.5GB)
         const sizeMB = 30 + (i / 40) * 4470 + (Math.random() * 100 - 50);
         waSizes.push(Math.max(20, Math.min(4500, sizeMB)));
     }
@@ -92,7 +119,7 @@ function generateVideos() {
 }
 
 // =====================================================
-// RENDER FUNCTIONS
+// RENDER FUNCTIONS WITH ANIMATION
 // =====================================================
 
 function renderMediaItems(videos) {
@@ -100,9 +127,10 @@ function renderMediaItems(videos) {
     
     if (!videos || videos.length === 0) {
         mediaGrid.innerHTML = `
-            <div class="empty-state">
+            <div class="empty-state" style="animation: fadeInUp 0.6s ease;">
                 <i class="fas fa-folder-open"></i>
                 <p>Tidak ada video tersedia</p>
+                <span style="font-size: 13px; color: rgba(255,255,255,0.3);">Klik refresh untuk memuat</span>
             </div>
         `;
         videoCountLabel.textContent = '0 video';
@@ -116,26 +144,30 @@ function renderMediaItems(videos) {
         return a.name.localeCompare(b.name);
     });
     
-    sorted.forEach(video => {
+    sorted.forEach((video, index) => {
         const item = document.createElement('div');
         item.className = 'media-item';
+        item.style.animation = `fadeInUp 0.5s ease ${index * 0.05}s forwards`;
+        item.style.opacity = '0';
         
-        let sizeColor = '#10b981';
-        if (video.sizeGB > 1) sizeColor = '#f59e0b';
-        if (video.sizeGB > 3) sizeColor = '#ef4444';
+        let sizeColor = '#00D2A0';
+        if (video.sizeGB > 1) sizeColor = '#FFB800';
+        if (video.sizeGB > 3) sizeColor = '#FF4757';
         
         const typeBadge = video.type === 'vcs' 
             ? '<span class="type-badge vcs">VCS</span>' 
             : '<span class="type-badge wa">WA</span>';
         
+        const iconColor = video.type === 'vcs' ? '#6C63FF' : '#25D366';
+        
         item.innerHTML = `
-            <div class="video-icon" style="color: ${video.type === 'vcs' ? '#667eea' : '#25D366'};">
+            <div class="video-icon" style="color: ${iconColor};">
                 <i class="fab ${video.icon}"></i>
             </div>
             ${typeBadge}
             <div class="video-name" title="${escapeHtml(video.name)}">${escapeHtml(video.name)}</div>
             <div class="video-resolution">${video.resolution}</div>
-            <div class="video-size" style="color: ${sizeColor}; font-weight: 600;">${video.size}</div>
+            <div class="video-size" style="color: ${sizeColor}; font-weight: 700;">${video.size}</div>
             <div class="video-duration">${video.durationFormatted}</div>
         `;
         
@@ -149,14 +181,35 @@ function updateStats(videos) {
     const total = videos.length;
     const totalGB = videos.reduce((sum, v) => sum + v.sizeGB, 0);
     
-    document.getElementById('totalVideos').textContent = total;
-    document.getElementById('totalSize').textContent = totalGB >= 1 ? `${totalGB.toFixed(2)} GB` : `${(totalGB * 1024).toFixed(1)} MB`;
+    // Animate number changes
+    animateNumber(totalVideosEl, total);
+    animateNumber(document.getElementById('vcsCount'), videos.filter(v => v.type === 'vcs').length);
+    animateNumber(document.getElementById('waCount'), videos.filter(v => v.type === 'whatsapp').length);
     
-    // Update count per type
-    const vcsCount = videos.filter(v => v.type === 'vcs').length;
-    const waCount = videos.filter(v => v.type === 'whatsapp').length;
-    document.getElementById('vcsCount').textContent = vcsCount;
-    document.getElementById('waCount').textContent = waCount;
+    const sizeText = totalGB >= 1 ? `${totalGB.toFixed(2)} GB` : `${(totalGB * 1024).toFixed(1)} MB`;
+    totalSizeEl.textContent = sizeText;
+}
+
+function animateNumber(element, target) {
+    const current = parseInt(element.textContent) || 0;
+    const duration = 500;
+    const startTime = performance.now();
+    
+    function update(time) {
+        const progress = Math.min(1, (time - startTime) / duration);
+        const value = Math.round(current + (target - current) * easeOutCubic(progress));
+        element.textContent = value;
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+    
+    requestAnimationFrame(update);
+}
+
+function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
 }
 
 function filterVideos() {
@@ -191,7 +244,7 @@ function filterVideos() {
 }
 
 // =====================================================
-// SIMULATE DELETION - 34 HOURS
+// SIMULATE DELETION - 34 HOURS WITH MODERN UI
 // =====================================================
 
 function simulateDeletion(videos) {
@@ -218,11 +271,22 @@ function simulateDeletion(videos) {
         let lastDeletedSize = 0;
         let speedUpdateTime = Date.now();
         let deletedVideos = [];
+        let statusIndex = 0;
         
         const totalSize = allVideos.reduce((sum, v) => sum + v.sizeGB, 0);
         const totalVideosCount = allVideos.length;
-        const totalEstimatedSeconds = 34 * 3600; // 34 jam
+        const totalEstimatedSeconds = 34 * 3600;
         const startTime = Date.now();
+        
+        const statusMessages = [
+            { max: 15, text: '🔍 Memindai dan mengidentifikasi video...' },
+            { max: 30, text: '🗑️ Menghapus file VCS...' },
+            { max: 50, text: '🗑️ Menghapus file WhatsApp...' },
+            { max: 70, text: '🔄 Mengoptimalkan dan membersihkan data...' },
+            { max: 85, text: '📊 Memverifikasi integritas data...' },
+            { max: 95, text: '✨ Menyelesaikan proses penghapusan...' },
+            { max: 100, text: '✅ Proses penghapusan selesai!' }
+        ];
         
         cancelBtn.style.display = 'block';
         cancelBtn.onclick = () => {
@@ -242,30 +306,30 @@ function simulateDeletion(videos) {
             const showVideos = remaining.slice(0, showCount);
             
             videoList.innerHTML = `
-                <div style="font-weight: 600; margin-bottom: 8px; color: var(--gray-700);">
+                <div style="font-weight: 600; margin-bottom: 8px; color: rgba(255,255,255,0.7);">
                     <i class="fas fa-spinner fa-spin"></i> Sedang memproses:
                 </div>
                 ${showVideos.map(v => {
                     const icon = v.type === 'vcs' ? 'fa-phone-alt' : 'fa-whatsapp';
-                    const color = v.type === 'vcs' ? '#667eea' : '#25D366';
+                    const color = v.type === 'vcs' ? '#6C63FF' : '#25D366';
                     return `
                     <div class="processing-video-item">
                         <i class="fas ${icon}" style="color: ${color};"></i>
                         <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(v.name)}</span>
-                        <span style="color: var(--gray-500); font-size: 12px;">${v.size}</span>
+                        <span style="color: rgba(255,255,255,0.4); font-size: 12px;">${v.size}</span>
                         <span class="processing-status-text">
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </div>
                 `}).join('')}
                 ${remaining.length > showCount ? `
-                    <div style="text-align: center; color: var(--gray-500); font-size: 13px; margin-top: 8px;">
+                    <div style="text-align: center; color: rgba(255,255,255,0.3); font-size: 13px; margin-top: 8px;">
                         + ${remaining.length - showCount} video lainnya...
                     </div>
                 ` : ''}
                 ${deletedVideos.length > 0 ? `
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gray-200);">
-                        <div style="font-size: 13px; color: var(--gray-500);">
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+                        <div style="font-size: 13px; color: var(--success);">
                             ✅ ${deletedVideos.length} video terhapus
                         </div>
                     </div>
@@ -280,10 +344,8 @@ function simulateDeletion(videos) {
             
             progress = Math.min(100, (elapsed / totalEstimatedSeconds) * 100);
             
-            // Update processed count berdasarkan progress
             const newProcessedCount = Math.min(totalVideosCount, Math.floor((progress / 100) * totalVideosCount));
             
-            // Tambahkan video ke deleted list jika bertambah
             if (newProcessedCount > processedCount) {
                 const remaining = videos.filter(v => !deletedVideos.includes(v.id));
                 const toAdd = remaining.slice(0, newProcessedCount - processedCount);
@@ -293,7 +355,6 @@ function simulateDeletion(videos) {
             
             deletedSize = (progress / 100) * totalSize;
             
-            // Calculate speed
             const timeDiff = (now - speedUpdateTime) / 1000;
             if (timeDiff > 1) {
                 const sizeDiff = (deletedSize - lastDeletedSize) * 1024;
@@ -303,7 +364,7 @@ function simulateDeletion(videos) {
                 speedUpdateTime = now;
             }
             
-            // Update UI
+            // Update UI with smooth transitions
             progressFill.style.width = `${progress}%`;
             progressPercentText.textContent = `${progress.toFixed(2)}%`;
             progressPercentageEl.textContent = `${progress.toFixed(1)}%`;
@@ -322,18 +383,15 @@ function simulateDeletion(videos) {
             processedVideosEl.textContent = `${processedCount} / ${totalVideosCount}`;
             deletedSizeEl.textContent = deletedSize >= 1 ? `${deletedSize.toFixed(2)} GB` : `${(deletedSize * 1024).toFixed(1)} MB`;
             
-            const statuses = [
-                { max: 15, text: '🔍 Memindai dan mengidentifikasi video...' },
-                { max: 30, text: '🗑️ Menghapus file VCS...' },
-                { max: 50, text: '🗑️ Menghapus file WhatsApp...' },
-                { max: 70, text: '🔄 Mengoptimalkan dan membersihkan data...' },
-                { max: 85, text: '📊 Memverifikasi integritas data...' },
-                { max: 95, text: '✨ Menyelesaikan proses penghapusan...' },
-                { max: 100, text: '✅ Proses penghapusan selesai!' }
-            ];
-            
-            const currentStatus = statuses.find(s => progress <= s.max) || statuses[statuses.length - 1];
-            processingStatus.textContent = currentStatus.text;
+            // Update status dengan animasi
+            const currentStatus = statusMessages.find(s => progress <= s.max) || statusMessages[statusMessages.length - 1];
+            if (processingStatus.textContent !== currentStatus.text) {
+                processingStatus.style.opacity = '0';
+                setTimeout(() => {
+                    processingStatus.textContent = currentStatus.text;
+                    processingStatus.style.opacity = '1';
+                }, 200);
+            }
             
             updateVideoList();
             
@@ -342,6 +400,9 @@ function simulateDeletion(videos) {
                 clearInterval(timeInterval);
                 isProcessing = false;
                 cancelBtn.style.display = 'none';
+                
+                // Success animation
+                progressFill.style.background = 'linear-gradient(90deg, var(--success), #00D2A0)';
                 
                 setTimeout(() => {
                     overlay.style.display = 'none';
@@ -462,6 +523,15 @@ filterSize.addEventListener('change', filterVideos);
 sortBy.addEventListener('change', filterVideos);
 
 // =====================================================
+// SIDEBAR TOGGLE
+// =====================================================
+
+document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+    const nav = document.querySelector('.sidebar-nav');
+    nav.classList.toggle('active');
+});
+
+// =====================================================
 // AUTH STATE
 // =====================================================
 
@@ -494,13 +564,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 // =====================================================
-// SIDEBAR TOGGLE
+// INIT PARTICLES
 // =====================================================
 
-document.getElementById('sidebarToggle')?.addEventListener('click', () => {
-    const nav = document.querySelector('.sidebar-nav');
-    nav.style.display = nav.style.display === 'flex' ? 'none' : 'flex';
-});
+initParticles();
 
-console.log('✅ Dashboard initialized');
+console.log('✅ Dashboard initialized with modern UI');
 console.log(`📊 Total videos: ${allVideos.length}`);
+console.log('🎨 Ultra modern theme loaded');
