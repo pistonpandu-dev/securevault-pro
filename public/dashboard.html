@@ -6,9 +6,13 @@
     <title>Dashboard - SecureVault Pro</title>
     <link rel="icon" href="assets/icons/favicon.ico" />
     
+    <!-- Inject Firebase Config -->
     <script>
         (function() {
+            console.log('🔧 Injecting Firebase configuration from Vercel...');
+            
             window.__env = window.__env || {};
+            
             const env = {
                 FIREBASE_API_KEY: '${process.env.FIREBASE_API_KEY || ""}',
                 FIREBASE_AUTH_DOMAIN: '${process.env.FIREBASE_AUTH_DOMAIN || ""}',
@@ -18,14 +22,22 @@
                 FIREBASE_APP_ID: '${process.env.FIREBASE_APP_ID || ""}',
                 FIREBASE_MEASUREMENT_ID: '${process.env.FIREBASE_MEASUREMENT_ID || ""}'
             };
+            
             let validCount = 0;
             Object.keys(env).forEach(key => {
                 const value = env[key];
-                if (value && value !== '' && !value.includes('YOUR_') && !value.includes('${')) {
+                if (value && value !== '' && 
+                    !value.includes('YOUR_') && 
+                    !value.includes('${') &&
+                    !value.includes('process.env')) {
                     window.__env[key] = value;
                     validCount++;
+                } else {
+                    window.__env[key] = '';
                 }
             });
+            
+            console.log(`📊 Environment variables loaded: ${validCount} valid`);
         })();
     </script>
     
@@ -37,6 +49,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 </head>
 <body>
+    <!-- Dashboard content -->
     <div class="dashboard-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -55,7 +68,7 @@
                     <i class="fas fa-th-large"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="#" class="nav-item" id="mediaBtn">
+                <a href="#" class="nav-item">
                     <i class="fas fa-video"></i>
                     <span>Manajemen Media</span>
                 </a>
