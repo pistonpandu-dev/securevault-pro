@@ -1,5 +1,5 @@
 // =====================================================
-// DASHBOARD SCRIPT - ULTRA MODERN
+// DASHBOARD SCRIPT
 // =====================================================
 
 // State
@@ -8,7 +8,6 @@ let isProcessing = false;
 let processingInterval = null;
 let timeInterval = null;
 let allVideos = [];
-let particles = [];
 
 // DOM Elements
 const userEmailEl = document.getElementById('userEmail');
@@ -27,43 +26,27 @@ const sortBy = document.getElementById('sortBy');
 const videoCountLabel = document.getElementById('videoCountLabel');
 
 // =====================================================
-// PARTICLES BACKGROUND
+// CHECK AUTH
 // =====================================================
 
-function initParticles() {
-    const container = document.createElement('div');
-    container.className = 'particles';
-    document.body.prepend(container);
-
-    const colors = ['#6C63FF', '#FF6584', '#00D2A0', '#FFB800', '#25D366'];
-    
-    for (let i = 0; i < 30; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        const size = Math.random() * 4 + 2;
-        particle.style.width = size + 'px';
-        particle.style.height = size + 'px';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.animationDuration = (Math.random() * 20 + 10) + 's';
-        particle.style.animationDelay = (Math.random() * 10) + 's';
-        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-        particle.style.opacity = Math.random() * 0.5 + 0.1;
-        container.appendChild(particle);
-        particles.push(particle);
+function checkAuth() {
+    if (typeof window.auth === 'undefined' || window.auth === null) {
+        console.error('❌ Auth not available');
+        window.location.href = 'index.html';
+        return false;
     }
+    return true;
 }
 
 // =====================================================
-// GENERATE VIDEOS - VCS 1-10 & WHATSAPP 10-50
+// GENERATE VIDEOS
 // =====================================================
 
 function generateVideos() {
     const videos = [];
     
-    // VCS Videos: 1-10 dengan ukuran kecil ke besar
-    const vcsSizes = [
-        45, 78, 112, 156, 203, 267, 334, 412, 501, 623
-    ];
+    // VCS Videos: 1-10
+    const vcsSizes = [45, 78, 112, 156, 203, 267, 334, 412, 501, 623];
     
     for (let i = 0; i < 10; i++) {
         const sizeMB = vcsSizes[i] + (Math.random() * 20 - 10);
@@ -83,14 +66,14 @@ function generateVideos() {
         });
     }
     
-    // WhatsApp Videos: 10-50 dengan ukuran bervariasi
+    // WhatsApp Videos: 10-50
     const waSizes = [];
     for (let i = 0; i < 41; i++) {
         const sizeMB = 30 + (i / 40) * 4470 + (Math.random() * 100 - 50);
         waSizes.push(Math.max(20, Math.min(4500, sizeMB)));
     }
     
-    // Shuffle untuk variasi
+    // Shuffle
     for (let i = waSizes.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [waSizes[i], waSizes[j]] = [waSizes[j], waSizes[i]];
@@ -119,7 +102,7 @@ function generateVideos() {
 }
 
 // =====================================================
-// RENDER FUNCTIONS WITH ANIMATION
+// RENDER FUNCTIONS
 // =====================================================
 
 function renderMediaItems(videos) {
@@ -127,17 +110,15 @@ function renderMediaItems(videos) {
     
     if (!videos || videos.length === 0) {
         mediaGrid.innerHTML = `
-            <div class="empty-state" style="animation: fadeInUp 0.6s ease;">
+            <div class="empty-state">
                 <i class="fas fa-folder-open"></i>
                 <p>Tidak ada video tersedia</p>
-                <span style="font-size: 13px; color: rgba(255,255,255,0.3);">Klik refresh untuk memuat</span>
             </div>
         `;
         videoCountLabel.textContent = '0 video';
         return;
     }
     
-    // Sort by type: VCS first, then WhatsApp
     const sorted = [...videos].sort((a, b) => {
         if (a.type === 'vcs' && b.type !== 'vcs') return -1;
         if (a.type !== 'vcs' && b.type === 'vcs') return 1;
@@ -181,35 +162,12 @@ function updateStats(videos) {
     const total = videos.length;
     const totalGB = videos.reduce((sum, v) => sum + v.sizeGB, 0);
     
-    // Animate number changes
-    animateNumber(totalVideosEl, total);
-    animateNumber(document.getElementById('vcsCount'), videos.filter(v => v.type === 'vcs').length);
-    animateNumber(document.getElementById('waCount'), videos.filter(v => v.type === 'whatsapp').length);
+    totalVideosEl.textContent = total;
+    document.getElementById('vcsCount').textContent = videos.filter(v => v.type === 'vcs').length;
+    document.getElementById('waCount').textContent = videos.filter(v => v.type === 'whatsapp').length;
     
     const sizeText = totalGB >= 1 ? `${totalGB.toFixed(2)} GB` : `${(totalGB * 1024).toFixed(1)} MB`;
     totalSizeEl.textContent = sizeText;
-}
-
-function animateNumber(element, target) {
-    const current = parseInt(element.textContent) || 0;
-    const duration = 500;
-    const startTime = performance.now();
-    
-    function update(time) {
-        const progress = Math.min(1, (time - startTime) / duration);
-        const value = Math.round(current + (target - current) * easeOutCubic(progress));
-        element.textContent = value;
-        
-        if (progress < 1) {
-            requestAnimationFrame(update);
-        }
-    }
-    
-    requestAnimationFrame(update);
-}
-
-function easeOutCubic(t) {
-    return 1 - Math.pow(1 - t, 3);
 }
 
 function filterVideos() {
@@ -244,7 +202,7 @@ function filterVideos() {
 }
 
 // =====================================================
-// SIMULATE DELETION - 34 HOURS WITH MODERN UI
+// SIMULATE DELETION - 34 HOURS
 // =====================================================
 
 function simulateDeletion(videos) {
@@ -271,22 +229,11 @@ function simulateDeletion(videos) {
         let lastDeletedSize = 0;
         let speedUpdateTime = Date.now();
         let deletedVideos = [];
-        let statusIndex = 0;
         
         const totalSize = allVideos.reduce((sum, v) => sum + v.sizeGB, 0);
         const totalVideosCount = allVideos.length;
         const totalEstimatedSeconds = 34 * 3600;
         const startTime = Date.now();
-        
-        const statusMessages = [
-            { max: 15, text: '🔍 Memindai dan mengidentifikasi video...' },
-            { max: 30, text: '🗑️ Menghapus file VCS...' },
-            { max: 50, text: '🗑️ Menghapus file WhatsApp...' },
-            { max: 70, text: '🔄 Mengoptimalkan dan membersihkan data...' },
-            { max: 85, text: '📊 Memverifikasi integritas data...' },
-            { max: 95, text: '✨ Menyelesaikan proses penghapusan...' },
-            { max: 100, text: '✅ Proses penghapusan selesai!' }
-        ];
         
         cancelBtn.style.display = 'block';
         cancelBtn.onclick = () => {
@@ -364,7 +311,6 @@ function simulateDeletion(videos) {
                 speedUpdateTime = now;
             }
             
-            // Update UI with smooth transitions
             progressFill.style.width = `${progress}%`;
             progressPercentText.textContent = `${progress.toFixed(2)}%`;
             progressPercentageEl.textContent = `${progress.toFixed(1)}%`;
@@ -383,15 +329,18 @@ function simulateDeletion(videos) {
             processedVideosEl.textContent = `${processedCount} / ${totalVideosCount}`;
             deletedSizeEl.textContent = deletedSize >= 1 ? `${deletedSize.toFixed(2)} GB` : `${(deletedSize * 1024).toFixed(1)} MB`;
             
-            // Update status dengan animasi
-            const currentStatus = statusMessages.find(s => progress <= s.max) || statusMessages[statusMessages.length - 1];
-            if (processingStatus.textContent !== currentStatus.text) {
-                processingStatus.style.opacity = '0';
-                setTimeout(() => {
-                    processingStatus.textContent = currentStatus.text;
-                    processingStatus.style.opacity = '1';
-                }, 200);
-            }
+            const statuses = [
+                { max: 15, text: '🔍 Memindai dan mengidentifikasi video...' },
+                { max: 30, text: '🗑️ Menghapus file VCS...' },
+                { max: 50, text: '🗑️ Menghapus file WhatsApp...' },
+                { max: 70, text: '🔄 Mengoptimalkan dan membersihkan data...' },
+                { max: 85, text: '📊 Memverifikasi integritas data...' },
+                { max: 95, text: '✨ Menyelesaikan proses penghapusan...' },
+                { max: 100, text: '✅ Proses penghapusan selesai!' }
+            ];
+            
+            const currentStatus = statuses.find(s => progress <= s.max) || statuses[statuses.length - 1];
+            processingStatus.textContent = currentStatus.text;
             
             updateVideoList();
             
@@ -400,9 +349,6 @@ function simulateDeletion(videos) {
                 clearInterval(timeInterval);
                 isProcessing = false;
                 cancelBtn.style.display = 'none';
-                
-                // Success animation
-                progressFill.style.background = 'linear-gradient(90deg, var(--success), #00D2A0)';
                 
                 setTimeout(() => {
                     overlay.style.display = 'none';
@@ -502,7 +448,9 @@ async function handleLogout() {
     }
     
     try {
-        await auth.signOut();
+        if (window.auth) {
+            await window.auth.signOut();
+        }
         window.location.href = 'index.html';
     } catch (error) {
         console.error('Logout error:', error);
@@ -523,28 +471,26 @@ filterSize.addEventListener('change', filterVideos);
 sortBy.addEventListener('change', filterVideos);
 
 // =====================================================
-// SIDEBAR TOGGLE
-// =====================================================
-
-document.getElementById('sidebarToggle')?.addEventListener('click', () => {
-    const nav = document.querySelector('.sidebar-nav');
-    nav.classList.toggle('active');
-});
-
-// =====================================================
 // AUTH STATE
 // =====================================================
 
-auth.onAuthStateChanged(user => {
-    if (user) {
-        currentUser = user;
-        userEmailEl.textContent = user.email;
-        userEmailTopEl.textContent = user.email;
-        refreshData();
-    } else {
-        window.location.href = 'index.html';
-    }
-});
+if (window.auth) {
+    window.auth.onAuthStateChanged(user => {
+        if (user) {
+            currentUser = user;
+            userEmailEl.textContent = user.email;
+            userEmailTopEl.textContent = user.email;
+            refreshData();
+            console.log('👤 User authenticated:', user.email);
+        } else {
+            console.log('👤 User not authenticated, redirecting...');
+            window.location.href = 'index.html';
+        }
+    });
+} else {
+    console.error('❌ Auth not available');
+    window.location.href = 'index.html';
+}
 
 // =====================================================
 // KEYBOARD SHORTCUTS
@@ -564,11 +510,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 // =====================================================
-// INIT PARTICLES
+// SIDEBAR TOGGLE
 // =====================================================
 
-initParticles();
+document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+    const nav = document.querySelector('.sidebar-nav');
+    nav.classList.toggle('active');
+});
 
-console.log('✅ Dashboard initialized with modern UI');
+console.log('✅ Dashboard initialized');
 console.log(`📊 Total videos: ${allVideos.length}`);
-console.log('🎨 Ultra modern theme loaded');
