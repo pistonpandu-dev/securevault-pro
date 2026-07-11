@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="css/responsive.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 </head>
@@ -30,7 +32,7 @@
             <div id="loginForm" class="login-form">
                 <div class="input-group">
                     <i class="fas fa-envelope input-icon"></i>
-                    <input type="email" id="email" placeholder="Alamat Email" required autocomplete="email" />
+                    <input type="email" id="email" placeholder="Alamat Email" value="rohmanjakarta15@gmail.com" required autocomplete="email" />
                 </div>
                 <div class="input-group">
                     <i class="fas fa-lock input-icon"></i>
@@ -40,7 +42,7 @@
                 
                 <div class="form-options">
                     <label class="remember-me">
-                        <input type="checkbox" id="rememberMe" />
+                        <input type="checkbox" id="rememberMe" checked />
                         <span>Ingat saya</span>
                     </label>
                     <a href="#" class="forgot-password">Lupa kata sandi?</a>
@@ -52,7 +54,7 @@
                 </button>
                 
                 <div class="divider">
-                    <span>atau</span>
+                    <span>ATAU</span>
                 </div>
                 
                 <button id="googleBtn" class="google-btn">
@@ -80,6 +82,7 @@
         </div>
     </div>
 
+    <!-- Firebase Config -->
     <script src="js/firebase-config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/script.js"></script>
