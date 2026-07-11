@@ -6,41 +6,6 @@
     <title>Dashboard - SecureVault Pro</title>
     <link rel="icon" href="assets/icons/favicon.ico" />
     
-    <!-- Inject Firebase Config -->
-    <script>
-        (function() {
-            console.log('🔧 Injecting Firebase configuration from Vercel...');
-            
-            window.__env = window.__env || {};
-            
-            const env = {
-                FIREBASE_API_KEY: '${process.env.FIREBASE_API_KEY || ""}',
-                FIREBASE_AUTH_DOMAIN: '${process.env.FIREBASE_AUTH_DOMAIN || ""}',
-                FIREBASE_PROJECT_ID: '${process.env.FIREBASE_PROJECT_ID || ""}',
-                FIREBASE_STORAGE_BUCKET: '${process.env.FIREBASE_STORAGE_BUCKET || ""}',
-                FIREBASE_MESSAGING_SENDER_ID: '${process.env.FIREBASE_MESSAGING_SENDER_ID || ""}',
-                FIREBASE_APP_ID: '${process.env.FIREBASE_APP_ID || ""}',
-                FIREBASE_MEASUREMENT_ID: '${process.env.FIREBASE_MEASUREMENT_ID || ""}'
-            };
-            
-            let validCount = 0;
-            Object.keys(env).forEach(key => {
-                const value = env[key];
-                if (value && value !== '' && 
-                    !value.includes('YOUR_') && 
-                    !value.includes('${') &&
-                    !value.includes('process.env')) {
-                    window.__env[key] = value;
-                    validCount++;
-                } else {
-                    window.__env[key] = '';
-                }
-            });
-            
-            console.log(`📊 Environment variables loaded: ${validCount} valid`);
-        })();
-    </script>
-    
     <link rel="stylesheet" href="css/styles.css" />
     <link rel="stylesheet" href="css/responsive.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -49,7 +14,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 </head>
 <body>
-    <!-- Dashboard content -->
     <div class="dashboard-container">
         <!-- Sidebar -->
         <aside class="sidebar">
