@@ -1,5 +1,5 @@
 // =====================================================
-// DASHBOARD SCRIPT - FULL FIX
+// DASHBOARD SCRIPT - WITH INVITE FEATURE
 // =====================================================
 
 // =====================================================
@@ -11,6 +11,12 @@ let processingInterval = null;
 let timeInterval = null;
 let allVideos = [];
 let deletedVideosList = [];
+let database = null;
+let inviteRef = null;
+let devicesRef = null;
+let currentInviteCode = null;
+let connectedDevices = [];
+let pendingInvites = [];
 
 // =====================================================
 // DOM ELEMENTS
@@ -32,25 +38,424 @@ const filterSize = document.getElementById('filterSize');
 const sortBy = document.getElementById('sortBy');
 const videoCountLabel = document.getElementById('videoCountLabel');
 
+// Invite elements
+const inviteSection = document.getElementById('inviteSection');
+const inviteTab = document.getElementById('inviteTab');
+const devicesGrid = document.getElementById('devicesGrid');
+const pendingInvitesEl = document.getElementById('pendingInvites');
+const generateInviteBtn = document.getElementById('generateInviteBtn');
+const inviteLinkContainer = document.getElementById('inviteLinkContainer');
+const inviteLinkInput = document.getElementById('inviteLinkInput');
+const copyInviteBtn = document.getElementById('copyInviteBtn');
+const revokeInviteBtn = document.getElementById('revokeInviteBtn');
+const deviceCountLabel = document.getElementById('deviceCountLabel');
+const inviteBadge = document.getElementById('inviteBadge');
+const notificationBadge = document.getElementById('notificationBadge');
+const notificationBtn = document.getElementById('notificationBtn');
+
+// Modal elements
+const inviteModal = document.getElementById('inviteModal');
+const inviteCodeInput = document.getElementById('inviteCodeInput');
+const joinDeviceBtn = document.getElementById('joinDeviceBtn');
+const inviteModalError = document.getElementById('inviteModalError');
+
 // =====================================================
-// CHECK AUTH
+// INITIALIZE FIREBASE DATABASE
 // =====================================================
-function checkAuth() {
-    if (typeof window.auth === 'undefined' || window.auth === null) {
-        console.error('❌ Auth not available');
-        window.location.href = 'index.html';
+function initDatabase() {
+    try {
+        if (typeof firebase !== 'undefined' && firebase.database) {
+            database = firebase.database();
+            console.log('✅ Firebase Database initialized');
+            return true;
+        } else {
+            console.warn('⚠️ Firebase Database not available');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Firebase Database init error:', error);
         return false;
     }
-    return true;
 }
 
 // =====================================================
-// GENERATE VIDEOS
+// INVITE FUNCTIONS
+// =====================================================
+
+// Generate invite link
+async function generateInvite() {
+    try {
+        if (!currentUser) {
+            showToast('Silakan login terlebih dahulu', 'warning');
+            return;
+        }
+
+        const inviteCode = generateId() + generateId();
+        currentInviteCode = inviteCode;
+        const baseUrl = window.location.origin;
+        const inviteLink = `${baseUrl}?invite=${inviteCode}`;
+
+        // Save to Firebase
+        if (database) {
+            const inviteData = {
+                code: inviteCode,
+                createdBy: currentUser.uid,
+                createdByEmail: currentUser.email,
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+                used: false,
+                usedBy: null,
+                usedAt: null
+            };
+
+            await database.ref(`invites/${inviteCode}`).set(inviteData);
+            console.log('✅ Invite saved to database');
+
+            // Listen for when this invite is used
+            database.ref(`invites/${inviteCode}/used`).on('value', (snapshot) => {
+                const used = snapshot.val();
+                if (used === true) {
+                    showToast('🔔 Ada perangkat baru yang bergabung!', 'success');
+                    loadConnectedDevices();
+                    updateNotificationBadge();
+                }
+            });
+        }
+
+        // Show invite link
+        inviteLinkInput.value = inviteLink;
+        inviteLinkContainer.style.display = 'block';
+        generateInviteBtn.textContent = 'Tautan Dibuat';
+        generateInviteBtn.disabled = true;
+
+        showToast('✅ Tautan undangan berhasil dibuat!', 'success');
+        console.log('📎 Invite link:', inviteLink);
+
+    } catch (error) {
+        console.error('❌ Generate invite error:', error);
+        showToast('❌ Gagal membuat tautan undangan', 'error');
+    }
+}
+
+// Copy invite link
+function copyInviteLink() {
+    const link = inviteLinkInput.value;
+    if (!link) {
+        showToast('Tidak ada tautan untuk disalin', 'warning');
+        return;
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link)
+            .then(() => {
+                showToast('✅ Tautan berhasil disalin!', 'success');
+                copyInviteBtn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => {
+                    copyInviteBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                }, 2000);
+            })
+            .catch(() => {
+                fallbackCopy(link);
+            });
+    } else {
+        fallbackCopy(link);
+    }
+}
+
+function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showToast('✅ Tautan berhasil disalin!', 'success');
+    } catch (err) {
+        showToast('❌ Gagal menyalin tautan', 'error');
+    }
+    document.body.removeChild(textarea);
+}
+
+// Revoke invite
+async function revokeInvite() {
+    if (!currentInviteCode) {
+        showToast('Tidak ada tautan yang aktif', 'warning');
+        return;
+    }
+
+    const confirmed = confirm('Yakin ingin membatalkan tautan undangan?');
+    if (!confirmed) return;
+
+    try {
+        if (database) {
+            await database.ref(`invites/${currentInviteCode}`).remove();
+        }
+
+        currentInviteCode = null;
+        inviteLinkContainer.style.display = 'none';
+        generateInviteBtn.textContent = 'Buat Tautan Undangan';
+        generateInviteBtn.disabled = false;
+        inviteLinkInput.value = '';
+
+        showToast('✅ Tautan undangan dibatalkan', 'success');
+        console.log('✅ Invite revoked');
+
+    } catch (error) {
+        console.error('❌ Revoke invite error:', error);
+        showToast('❌ Gagal membatalkan tautan', 'error');
+    }
+}
+
+// Load connected devices
+async function loadConnectedDevices() {
+    if (!database || !currentUser) return;
+
+    try {
+        const snapshot = await database.ref(`devices/${currentUser.uid}`).once('value');
+        const data = snapshot.val();
+        
+        connectedDevices = [];
+        if (data) {
+            Object.keys(data).forEach(key => {
+                connectedDevices.push({
+                    id: key,
+                    ...data[key]
+                });
+            });
+        }
+
+        renderDevices(connectedDevices);
+        deviceCountLabel.textContent = `${connectedDevices.length} perangkat terhubung`;
+
+    } catch (error) {
+        console.error('❌ Load devices error:', error);
+    }
+}
+
+// Render devices
+function renderDevices(devices) {
+    if (!devicesGrid) return;
+
+    if (!devices || devices.length === 0) {
+        devicesGrid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-wifi"></i>
+                <p>Belum ada perangkat terhubung</p>
+                <span style="font-size: 13px; color: rgba(255,255,255,0.3);">Bagikan tautan undangan untuk menghubungkan perangkat lain</span>
+            </div>
+        `;
+        return;
+    }
+
+    devicesGrid.innerHTML = devices.map(device => `
+        <div class="device-card">
+            <div class="device-icon">
+                <i class="fas ${device.type === 'mobile' ? 'fa-mobile-alt' : 'fa-desktop'}"></i>
+            </div>
+            <div class="device-info">
+                <div class="device-name">${escapeHtml(device.name || 'Perangkat')}</div>
+                <div class="device-detail">${escapeHtml(device.browser || 'Unknown')}</div>
+                <div class="device-time">Bergabung: ${formatDate(device.joinedAt)}</div>
+            </div>
+            <div class="device-status ${device.online ? 'online' : 'offline'}">
+                <span class="status-dot"></span>
+                ${device.online ? 'Online' : 'Offline'}
+            </div>
+            <button class="device-remove-btn" onclick="removeDevice('${device.id}')" title="Hapus perangkat">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Remove device
+async function removeDevice(deviceId) {
+    if (!database || !currentUser) return;
+
+    const confirmed = confirm('Yakin ingin menghapus perangkat ini?');
+    if (!confirmed) return;
+
+    try {
+        await database.ref(`devices/${currentUser.uid}/${deviceId}`).remove();
+        showToast('✅ Perangkat berhasil dihapus', 'success');
+        loadConnectedDevices();
+        updateNotificationBadge();
+    } catch (error) {
+        console.error('❌ Remove device error:', error);
+        showToast('❌ Gagal menghapus perangkat', 'error');
+    }
+}
+
+// =====================================================
+// JOIN DEVICE (from invite link)
+// =====================================================
+async function joinDevice() {
+    const inviteCode = inviteCodeInput.value.trim();
+    if (!inviteCode) {
+        inviteModalError.textContent = 'Masukkan tautan undangan';
+        inviteModalError.style.display = 'block';
+        return;
+    }
+
+    // Extract code from URL if full link is pasted
+    let code = inviteCode;
+    if (inviteCode.includes('invite=')) {
+        const params = new URLSearchParams(inviteCode.split('?')[1]);
+        code = params.get('invite') || code;
+    }
+
+    try {
+        inviteModalError.style.display = 'none';
+        joinDeviceBtn.disabled = true;
+        joinDeviceBtn.textContent = 'Memproses...';
+
+        // Check invite in database
+        if (!database) {
+            throw new Error('Database tidak tersedia');
+        }
+
+        const snapshot = await database.ref(`invites/${code}`).once('value');
+        const inviteData = snapshot.val();
+
+        if (!inviteData) {
+            throw new Error('Tautan undangan tidak valid atau sudah kadaluarsa');
+        }
+
+        if (inviteData.used) {
+            throw new Error('Tautan undangan sudah digunakan');
+        }
+
+        if (inviteData.expiresAt < Date.now()) {
+            throw new Error('Tautan undangan sudah kadaluarsa');
+        }
+
+        if (inviteData.createdBy === currentUser.uid) {
+            throw new Error('Anda tidak bisa bergabung dengan tautan Anda sendiri');
+        }
+
+        // Register device
+        const deviceInfo = {
+            id: generateId(),
+            name: navigator.userAgent.includes('Mobile') ? 'Perangkat Mobile' : 'Perangkat Desktop',
+            browser: navigator.userAgent.split(' ').slice(-1)[0] || 'Unknown',
+            type: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
+            online: true,
+            joinedAt: Date.now(),
+            userId: currentUser.uid,
+            userEmail: currentUser.email
+        };
+
+        await database.ref(`devices/${inviteData.createdBy}/${deviceInfo.id}`).set(deviceInfo);
+        
+        // Mark invite as used
+        await database.ref(`invites/${code}`).update({
+            used: true,
+            usedBy: currentUser.uid,
+            usedAt: Date.now()
+        });
+
+        showToast('✅ Berhasil bergabung dengan perangkat!', 'success');
+        closeInviteModal();
+        loadConnectedDevices();
+        updateNotificationBadge();
+
+    } catch (error) {
+        console.error('❌ Join device error:', error);
+        inviteModalError.textContent = error.message || 'Gagal bergabung';
+        inviteModalError.style.display = 'block';
+    } finally {
+        joinDeviceBtn.disabled = false;
+        joinDeviceBtn.textContent = 'Gabung Sekarang';
+    }
+}
+
+// =====================================================
+// NOTIFICATION FUNCTIONS
+// =====================================================
+function updateNotificationBadge() {
+    const total = connectedDevices.length + pendingInvites.length;
+    if (total > 0) {
+        notificationBadge.textContent = total;
+        notificationBadge.style.display = 'flex';
+        inviteBadge.textContent = total;
+        inviteBadge.style.display = 'flex';
+    } else {
+        notificationBadge.style.display = 'none';
+        inviteBadge.style.display = 'none';
+    }
+}
+
+// =====================================================
+// MODAL FUNCTIONS
+// =====================================================
+function openInviteModal() {
+    inviteModal.style.display = 'flex';
+    inviteCodeInput.value = '';
+    inviteModalError.style.display = 'none';
+    inviteCodeInput.focus();
+}
+
+function closeInviteModal() {
+    inviteModal.style.display = 'none';
+}
+
+// Close modal on outside click
+document.addEventListener('click', (e) => {
+    if (e.target === inviteModal) {
+        closeInviteModal();
+    }
+});
+
+// =====================================================
+// NAVIGATION
+// =====================================================
+function navigateTo(page) {
+    const mediaSection = document.getElementById('mediaSection');
+    const inviteSectionEl = document.getElementById('inviteSection');
+
+    // Hide all sections
+    if (mediaSection) mediaSection.style.display = 'none';
+    if (inviteSectionEl) inviteSectionEl.style.display = 'none';
+
+    // Show selected section
+    if (page === 'invite') {
+        if (inviteSectionEl) inviteSectionEl.style.display = 'block';
+        loadConnectedDevices();
+    } else {
+        if (mediaSection) mediaSection.style.display = 'block';
+    }
+
+    // Update active nav
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    const activeNav = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (activeNav) activeNav.classList.add('active');
+}
+
+// =====================================================
+// CHECK INVITE IN URL
+// =====================================================
+function checkUrlForInvite() {
+    const params = new URLSearchParams(window.location.search);
+    const inviteCode = params.get('invite');
+    if (inviteCode) {
+        // Clean URL
+        const newUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+
+        // Open modal
+        inviteCodeInput.value = inviteCode;
+        openInviteModal();
+    }
+}
+
+// =====================================================
+// GENERATE VIDEOS (existing)
 // =====================================================
 function generateVideos() {
     const videos = [];
     
-    // VCS Videos: 1-10
     const vcsSizes = [45, 78, 112, 156, 203, 267, 334, 412, 501, 623];
     const vcsNames = [
         'VCS 1.mp4', 'VCS 2.mp4', 'VCS 3.mp4', 'VCS 4.mp4', 'VCS 5.mp4',
@@ -75,20 +480,17 @@ function generateVideos() {
         });
     }
     
-    // WhatsApp Videos: 10-50
     const waNames = [];
     for (let i = 10; i <= 50; i++) {
         waNames.push(`WhatsApp video ${i}.mp4`);
     }
     
-    // Generate sizes from 30MB to 4.5GB
     const waSizes = [];
     for (let i = 0; i < 41; i++) {
         const sizeMB = 30 + (i / 40) * 4470 + (Math.random() * 100 - 50);
         waSizes.push(Math.max(20, Math.min(4500, sizeMB)));
     }
     
-    // Shuffle sizes
     for (let i = waSizes.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [waSizes[i], waSizes[j]] = [waSizes[j], waSizes[i]];
@@ -117,7 +519,7 @@ function generateVideos() {
 }
 
 // =====================================================
-// RENDER FUNCTIONS
+// RENDER FUNCTIONS (existing)
 // =====================================================
 function renderMediaItems(videos) {
     mediaGrid.innerHTML = '';
@@ -134,7 +536,6 @@ function renderMediaItems(videos) {
         return;
     }
     
-    // Sort by type: VCS first, then WhatsApp
     const sorted = [...videos].sort((a, b) => {
         if (a.type === 'vcs' && b.type !== 'vcs') return -1;
         if (a.type !== 'vcs' && b.type === 'vcs') return 1;
@@ -220,13 +621,11 @@ function filterVideos() {
 }
 
 // =====================================================
-// SIMULATE DELETION - 34 HOURS
+// SIMULATE DELETION (existing - shortened for space)
 // =====================================================
 function simulateDeletion(videos) {
     return new Promise((resolve) => {
-        // Check if videos exist
         if (!videos || videos.length === 0) {
-            console.warn('⚠️ No videos to delete');
             resolve();
             return;
         }
@@ -259,7 +658,6 @@ function simulateDeletion(videos) {
         const totalEstimatedSeconds = 34 * 3600;
         const startTime = Date.now();
         
-        // Show cancel button
         cancelBtn.style.display = 'block';
         cancelBtn.onclick = () => {
             if (confirm('Yakin ingin membatalkan proses?')) {
@@ -329,7 +727,6 @@ function simulateDeletion(videos) {
             
             deletedSize = (progress / 100) * totalSize;
             
-            // Calculate speed
             const timeDiff = (now - speedUpdateTime) / 1000;
             if (timeDiff > 1) {
                 const sizeDiff = (deletedSize - lastDeletedSize) * 1024;
@@ -341,7 +738,6 @@ function simulateDeletion(videos) {
                 speedUpdateTime = now;
             }
             
-            // Update UI
             if (progressFill) progressFill.style.width = `${progress}%`;
             if (progressPercentText) progressPercentText.textContent = `${progress.toFixed(2)}%`;
             if (progressPercentageEl) progressPercentageEl.textContent = `${progress.toFixed(1)}%`;
@@ -392,7 +788,6 @@ function simulateDeletion(videos) {
             }
         }
         
-        // Start intervals
         processingInterval = setInterval(updateProgress, 2000);
         timeInterval = setInterval(() => {
             if (!isProcessing) return;
@@ -402,14 +797,13 @@ function simulateDeletion(videos) {
             if (processingTimeEl) processingTimeEl.textContent = formatTime(elapsed);
         }, 1000);
         
-        // Initial update
         updateProgress();
         updateVideoList();
     });
 }
 
 // =====================================================
-// DELETE ALL VIDEOS
+// DELETE ALL VIDEOS (existing)
 // =====================================================
 async function deleteAllVideos() {
     try {
@@ -447,10 +841,8 @@ async function deleteAllVideos() {
         
         console.log('✅ Deletion confirmed, starting process...');
         
-        // Simulate deletion
         await simulateDeletion(allVideos);
         
-        // Clear all videos after deletion
         allVideos = [];
         renderMediaItems([]);
         updateStats([]);
@@ -465,7 +857,7 @@ async function deleteAllVideos() {
 }
 
 // =====================================================
-// REFRESH DATA
+// REFRESH DATA (existing)
 // =====================================================
 function refreshData() {
     try {
@@ -491,7 +883,7 @@ function refreshData() {
 }
 
 // =====================================================
-// LOGOUT
+// LOGOUT (existing)
 // =====================================================
 async function handleLogout() {
     if (isProcessing) {
@@ -513,28 +905,54 @@ async function handleLogout() {
 // =====================================================
 // EVENT LISTENERS
 // =====================================================
+
+// Existing listeners
 if (deleteAllBtn) {
     deleteAllBtn.addEventListener('click', deleteAllVideos);
 }
-
 if (logoutBtn) {
     logoutBtn.addEventListener('click', handleLogout);
 }
-
 if (refreshBtn) {
     refreshBtn.addEventListener('click', refreshData);
 }
-
 if (searchInput) {
     searchInput.addEventListener('input', debounce(filterVideos, 300));
 }
-
 if (filterSize) {
     filterSize.addEventListener('change', filterVideos);
 }
-
 if (sortBy) {
     sortBy.addEventListener('change', filterVideos);
+}
+
+// Invite listeners
+if (generateInviteBtn) {
+    generateInviteBtn.addEventListener('click', generateInvite);
+}
+if (copyInviteBtn) {
+    copyInviteBtn.addEventListener('click', copyInviteLink);
+}
+if (revokeInviteBtn) {
+    revokeInviteBtn.addEventListener('click', revokeInvite);
+}
+if (joinDeviceBtn) {
+    joinDeviceBtn.addEventListener('click', joinDevice);
+}
+
+// Navigation
+if (inviteTab) {
+    inviteTab.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateTo('invite');
+    });
+}
+
+// Notification click
+if (notificationBtn) {
+    notificationBtn.addEventListener('click', () => {
+        navigateTo('invite');
+    });
 }
 
 // =====================================================
@@ -551,12 +969,22 @@ document.getElementById('sidebarToggle')?.addEventListener('click', () => {
 // AUTH STATE
 // =====================================================
 if (window.auth) {
-    window.auth.onAuthStateChanged(user => {
+    window.auth.onAuthStateChanged(async (user) => {
         if (user) {
             currentUser = user;
             if (userEmailEl) userEmailEl.textContent = user.email;
             if (userEmailTopEl) userEmailTopEl.textContent = user.email;
+            
+            // Init database
+            const dbInit = initDatabase();
+            if (dbInit) {
+                await loadConnectedDevices();
+                updateNotificationBadge();
+            }
+            
             refreshData();
+            checkUrlForInvite();
+            
             console.log('👤 User authenticated:', user.email);
         } else {
             console.log('👤 User not authenticated, redirecting...');
@@ -582,7 +1010,10 @@ document.addEventListener('keydown', (e) => {
             cancelBtn.click();
         }
     }
+    if (e.key === 'Escape' && inviteModal && inviteModal.style.display === 'flex') {
+        closeInviteModal();
+    }
 });
 
-console.log('✅ Dashboard initialized');
+console.log('✅ Dashboard initialized with invite feature');
 console.log(`📊 Total videos loaded: ${allVideos.length}`);
