@@ -2026,3 +2026,58 @@ body::before {
         flex-wrap: wrap;
     }
 }
+/* =====================================================
+   SPEED SELECTOR
+   ===================================================== */
+.speed-selector {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-right: 8px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.speed-selector button {
+    padding: 6px 10px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    font-family: 'Inter', sans-serif;
+    min-width: 36px;
+    text-align: center;
+}
+
+.speed-selector button:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.speed-selector button.active {
+    border-color: var(--primary);
+    background: rgba(108, 99, 255, 0.2);
+    color: var(--primary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .speed-selector {
+        padding: 4px 6px;
+        gap: 4px;
+    }
+    
+    .speed-selector button {
+        padding: 4px 8px;
+        font-size: 12px;
+        min-width: 30px;
+    }
+    
+    .speed-selector span {
+        display: none;
+    }
+}
